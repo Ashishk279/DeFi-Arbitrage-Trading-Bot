@@ -1,22 +1,51 @@
 {
-  "name": "arbitrage-bot-node",
-  "version": "1.0.0",
-  "main": "app.js",
+  "name": "arbitrage-detector-bot",
+  "version": "2.0.0",
+  "description": "Advanced arbitrage detection bot for Ethereum DEX with V2/V3 support and WebSocket connectivity",
   "type": "module",
+  "main": "app.js",
   "scripts": {
-    "start": "node app.js"
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint .",
+    "setup": "npm install && cp .env.example .env",
+    "db:seed": "node scripts/seedDatabase.js",
+    "monitor": "node scripts/monitor.js"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "description": "",
   "dependencies": {
-    "@uniswap/sdk-core": "^7.7.2",
-    "@uniswap/v3-sdk": "^3.25.2",
-    "dotenv": "^17.2.2",
-    "ethers": "^6.15.0",
-    "express": "^5.1.0",
-    "mongoose": "^8.18.1",
-    "node-cron": "^4.2.1"
+    "@uniswap/sdk-core": "^4.0.7",
+    "@uniswap/v3-sdk": "^3.10.0",
+    "cors": "^2.8.5",
+    "dotenv": "^16.3.1",
+    "ethers": "^6.8.1",
+    "express": "^4.18.2",
+    "mongoose": "^7.6.3",
+    "node-cron": "^3.0.2",
+    "ws": "^8.14.2"
+  },
+  "devDependencies": {
+    "eslint": "^8.51.0",
+    "nodemon": "^3.0.1"
+  },
+  "keywords": [
+    "arbitrage",
+    "ethereum",
+    "defi",
+    "uniswap",
+    "sushiswap",
+    "websocket",
+    "trading-bot",
+    "mev"
+  ],
+  "author": "Your Name",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/yourusername/arbitrage-detector-bot"
+  },
+  "engines": {
+    "node": ">=18.0.0",
+    "npm": ">=8.0.0"
   }
 }
