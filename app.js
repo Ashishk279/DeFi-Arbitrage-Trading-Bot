@@ -338,7 +338,8 @@ async function startServer() {
     await wsProvider.initialize();
     
     // Schedule scans every 30 seconds
-    cron.schedule('*/30 * * * * *', botLoop);
+
+    cron.schedule('*/120* * * * *', await botLoop);
     console.log('⏰ Scheduled scans every 30 seconds');
     
     // Optional: Start real-time monitoring
