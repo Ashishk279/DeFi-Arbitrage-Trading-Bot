@@ -52,6 +52,18 @@ const opportunitySchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  profitToken: {
+    type: Number,
+    default: 0
+  },
+  profitTokenSymbol: {
+    type: String,
+    default: ''
+  },
+  profitPercentage: {
+    type: Number,
+    default: 0
+  },
   gasEstimate: {
     type: Number,
     default: 0
@@ -59,6 +71,10 @@ const opportunitySchema = new mongoose.Schema({
   gasPrice: {
     type: String,
     default: '0'
+  },
+  platformFees: {
+    type: Number,
+    default: 0
   },
   
   // V3 specific
@@ -76,13 +92,27 @@ const opportunitySchema = new mongoose.Schema({
     type: String,
     required: true
   },
+  inputTokenSymbol: {
+    type: String,
+    default: ''
+  },
   outputAmount: {
     type: String,
     default: '0'
   },
+  outputTokenSymbol: {
+    type: String,
+    default: ''
+  },
   priceImpact: {
     type: Number,
     default: 0
+  },
+  
+  // Status
+  profitable: {
+    type: Boolean,
+    default: false
   },
   
   // Metadata
@@ -105,10 +135,11 @@ const opportunitySchema = new mongoose.Schema({
 }, {
   timestamps: true,
   indexes: [
-    { type: 1, timestamp: -1 },
-    { profitEth: -1 },
-    { pair: 1, timestamp: -1 },
-    { executed: 1, timestamp: -1 }
+    { key: { type: 1, timestamp: -1 } },
+    { key: { profitEth: -1 } },
+    { key: { pair: 1, timestamp: -1 } },
+    { key: { executed: 1, timestamp: -1 } },
+    { key: { profitable: 1, timestamp: -1 } }
   ]
 });
 
@@ -120,10 +151,23 @@ opportunitySchema.methods.toDisplayFormat = function() {
     pair: this.pair,
     profitEth: this.profitEth.toFixed(6),
     profitUsd: this.profitUsd.toFixed(2),
+    profitToken: this.profitToken.toFixed(this.profitTokenSymbol === 'USDC' ? 6 : 18),
+    profitTokenSymbol: this.profitTokenSymbol,
+    profitPercentage: this.profitPercentage.toFixed(2),
     dex1: this.dex1,
     dex2: this.dex2,
+    dex1Price: this.dex1Price,
+    dex2Price: this.dex2Price,
     isTriangular: this.isTriangular,
     triangularPath: this.triangularPath,
+    triangularDex: this.triangularDex,
+    gasEstimate: this.gasEstimate,
+    platformFees: this.platformFees.toFixed(4),
+    inputAmount: this.inputAmount,
+    inputTokenSymbol: this.inputTokenSymbol,
+    outputAmount: this.outputAmount,
+    outputTokenSymbol: this.outputTokenSymbol,
+    profitable: this.profitable,
     timestamp: this.timestamp,
     executed: this.executed
   };
@@ -133,8 +177,15 @@ opportunitySchema.methods.toDisplayFormat = function() {
 opportunitySchema.statics.findProfitableOpportunities = function(minProfitEth = 0.001) {
   return this.find({
     profitEth: { $gte: minProfitEth },
+    profitable: true,
     executed: false
   }).sort({ profitEth: -1 });
+};
+
+opportunitySchema.statics.findAllOpportunities = function(limit = 10) {
+  return this.find({})
+    .sort({ timestamp: -1 })
+    .limit(limit);
 };
 
 opportunitySchema.statics.getStatsByType = function() {

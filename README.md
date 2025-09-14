@@ -102,7 +102,7 @@ npm start
 
 - Test the API:
 ```bash
-Fetch recent opportunities:curl http://localhost:3000/opportunities?limit=5
+Fetch recent opportunities:curl http://localhost:3000/api/opportunities
 
 
 Response example:[
@@ -118,7 +118,38 @@ Response example:[
 ]
 
 ```
+## API Endpoints
 
+The bot exposes the following API endpoints:
+
+- GET /api/health:
+
+Checks the server status.
+Response: { status: 'healthy', timestamp: 'YYYY-MM-DDTHH:mm:ss.sssZ' }
+
+- GET /api/scan:
+
+Triggers a manual scan for arbitrage opportunities.
+Response: Array of opportunity objects.
+
+- GET /api/opportunities/profitable?minProfit=<eth>:
+Fetches profitable opportunities with profit ≥ minProfit (default: 0.001 ETH).
+Example: /api/opportunities/profitable?minProfit=0.01
+Response: Array of profitable opportunity objects.
+
+- GET /api/opportunities/all?limit=<number>:
+Fetches all opportunities (profitable and non-profitable) with a limit (default: 10).
+Example: /api/opportunities/all?limit=20
+Response: Array of opportunity objects.
+
+- GET /api/stats/by-type:
+Returns statistics grouped by arbitrage type (e.g., V2_SIMPLE, V3_TRIANGULAR).
+Response: { _id: string, count: number, avgProfit: number, maxProfit: number, totalProfit: number }
+
+- GET /api/stats/hourly:
+
+Returns hourly statistics for the last 24 hours.
+Response: { _id: { year, month, day, hour }, count: number, avgProfit: number, maxProfit: number }
 
 
 ## Development/Testing:

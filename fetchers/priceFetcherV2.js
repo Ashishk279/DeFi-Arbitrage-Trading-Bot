@@ -39,10 +39,10 @@ class DEXPriceFetcherV2 {
     this.router = new ethers.Contract(dexConfig.router, ROUTER_ABI, this.provider);
   }
 
-  async getPrice(tokenA, tokenB, amountIn = ethers.parseEther('1'), pairAddress) {
+  async getPrice(tokenA, tokenB, amountIn = ethers.parseEther('0.01'), pairAddress) {
     if (!pairAddress) {
-      console.log(`❌ No pair address for ${tokenA.slice(0,6)}-${tokenB.slice(0,6)} on ${this.name}`);
-      return 0;
+      console.log(`❌ No pair address for ${TOKEN_MAP[tokenA.toLowerCase()]?.symbol || tokenA.slice(0,6)}-${TOKEN_MAP[tokenB.toLowerCase()]?.symbol || tokenB.slice(0,6)} on ${this.name}`);
+      return { price: 0, amountOut: 0n };
     }
 
     try {
@@ -50,43 +50,47 @@ class DEXPriceFetcherV2 {
       const [reserve0, reserve1] = await pair.getReserves();
       
       if (reserve0 === 0n || reserve1 === 0n) {
-        console.log(`No liquidity for ${tokenA.slice(0,6)}-${tokenB.slice(0,6)} on ${this.name}`);
-        return 0;
+        console.log(`No liquidity for ${TOKEN_MAP[tokenA.toLowerCase()]?.symbol || tokenA.slice(0,6)}-${TOKEN_MAP[tokenB.toLowerCase()]?.symbol || tokenB.slice(0,6)} on ${this.name}`);
+        return { price: 0, amountOut: 0n };
       }
 
       const token0 = await pair.token0();
       let reserveIn, reserveOut;
-      if (token0.toLowerCase() === tokenA.toLowerCase()) {
-        reserveIn = reserve0;
-        reserveOut = reserve1;
-      } else {
-        reserveIn = reserve1;
-        reserveOut = reserve0;
-      }
+      const isToken0 = token0.toLowerCase() === tokenA.toLowerCase();
+      reserveIn = isToken0 ? reserve0 : reserve1;
+      reserveOut = isToken0 ? reserve1 : reserve0;
+
+      const tokenAObj = TOKEN_MAP[tokenA.toLowerCase()];
+      const tokenBObj = TOKEN_MAP[tokenB.toLowerCase()];
+      const decA = tokenAObj?.decimals || 18;
+      const decB = tokenBObj?.decimals || 18;
 
       const amountInWithFee = amountIn * 997n;
       const numerator = amountInWithFee * reserveOut;
       const denominator = reserveIn * 1000n + amountInWithFee;
       const amountOut = numerator / denominator;
 
-      const tokenAObj = TOKEN_MAP[tokenA.toLowerCase()];
-      const tokenBObj = TOKEN_MAP[tokenB.toLowerCase()];
-      const decA = tokenAObj?.decimals || 18;
-      const decB = tokenBObj?.decimals || 18;
-      
       const price = Number(amountOut) / 10 ** decB / (Number(amountIn) / 10 ** decA);
-      console.log(`${this.name} price for ${tokenA.slice(0,6)}-${tokenB.slice(0,6)}: ${price.toFixed(6)}`);
-      return price;
+      
+      console.log(`📈 ${this.name} Price Data:`);
+      console.log(`   Token In: ${tokenAObj?.symbol} (${tokenA})`);
+      console.log(`   Token Out: ${tokenBObj?.symbol} (${tokenB})`);
+      console.log(`   Pool Address: ${pairAddress}`);
+      console.log(`   Input Amount: ${(Number(amountIn) / 10 ** decA).toFixed(decA)} ${tokenAObj?.symbol}`);
+      console.log(`   Output Amount: ${(Number(amountOut) / 10 ** decB).toFixed(decB)} ${tokenBObj?.symbol}`);
+      console.log(`   Price: ${price.toFixed(18)} (${tokenBObj?.symbol}/${tokenAObj?.symbol})`);
+
+      return { price, amountOut };
     } catch (error) {
-      console.error(`Error getting price for ${tokenA.slice(0,6)}-${tokenB.slice(0,6)} on ${this.name}:`, error.message);
-      return 0;
+      console.error(`Error getting price for ${TOKEN_MAP[tokenA.toLowerCase()]?.symbol || tokenA.slice(0,6)}-${TOKEN_MAP[tokenB.toLowerCase()]?.symbol || tokenB.slice(0,6)} on ${this.name}:`, error.message);
+      return { price: 0, amountOut: 0n };
     }
   }
 
   async simulateMultiHop(path, amountIn, pairAddresses) {
     if (!pairAddresses || pairAddresses.some(addr => !addr)) {
-      console.log(`❌ Missing pair addresses for path ${path.map(t => t.slice(0,6)).join('->')} on ${this.name}`);
-      return 0;
+      console.log(`❌ Missing pair addresses for path ${path.map(t => TOKEN_MAP[t.toLowerCase()]?.symbol || t.slice(0,6)).join('->')} on ${this.name}`);
+      return { amountOut: 0, amounts: [] };
     }
 
     try {
@@ -94,14 +98,26 @@ class DEXPriceFetcherV2 {
       const finalAmount = amounts[amounts.length - 1];
       
       const outputToken = TOKEN_MAP[path[path.length - 1].toLowerCase()];
+      const inputToken = TOKEN_MAP[path[0].toLowerCase()];
       const decOut = outputToken?.decimals || 18;
+      const decIn = inputToken?.decimals || 18;
       
       const result = Number(finalAmount) / 10 ** decOut;
-      console.log(`${this.name} multi-hop result for path ${path.map(t => t.slice(0,6)).join('->')}: ${result.toFixed(6)}`);
-      return result;
+
+      console.log(`🔄 ${this.name} Multi-Hop Simulation:`);
+      console.log(`   Path: ${path.map(t => TOKEN_MAP[t.toLowerCase()]?.symbol || t.slice(0,6)).join('->')}`);
+      console.log(`   Pool Addresses: ${pairAddresses.join(', ')}`);
+      console.log(`   Input Amount: ${(Number(amountIn) / 10 ** decIn).toFixed(decIn)} ${inputToken?.symbol}`);
+      console.log(`   Output Amount: ${result.toFixed(decOut)} ${outputToken?.symbol}`);
+      amounts.slice(1).forEach((amt, i) => {
+        const token = TOKEN_MAP[path[i + 1].toLowerCase()];
+        console.log(`   Hop ${i + 1}: ${(Number(amt) / 10 ** (token?.decimals || 18)).toFixed(token?.decimals || 18)} ${token?.symbol}`);
+      });
+
+      return { amountOut: result, amounts };
     } catch (error) {
-      console.error(`Error in multi-hop simulation on ${this.name} for path ${path.map(t => t.slice(0,6)).join('->')}:`, error.message);
-      return 0;
+      console.error(`Error in multi-hop simulation on ${this.name} for path ${path.map(t => TOKEN_MAP[t.toLowerCase()]?.symbol || t.slice(0,6)).join('->')}:`, error.message);
+      return { amountOut: 0, amounts: [] };
     }
   }
 }
@@ -110,14 +126,14 @@ const uniswapV2Fetcher = new DEXPriceFetcherV2(DEX_CONFIG.UNISWAP_V2);
 const sushiswapFetcher = new DEXPriceFetcherV2(DEX_CONFIG.SUSHISWAP);
 const pancakeswapFetcher = new DEXPriceFetcherV2(DEX_CONFIG.PANCAKESWAP);
 
-export async function getAllV2Prices(tokenA, tokenB, amountIn = ethers.parseEther('1')) {
+export async function getAllV2Prices(tokenA, tokenB, amountIn = ethers.parseEther('0.01')) {
   const pairData = VALID_TRADING_PAIRS.find(p => 
     (p.pair[0].toLowerCase() === tokenA.toLowerCase() && p.pair[1].toLowerCase() === tokenB.toLowerCase()) ||
     (p.pair[0].toLowerCase() === tokenB.toLowerCase() && p.pair[1].toLowerCase() === tokenA.toLowerCase())
   );
 
   if (!pairData) {
-    console.log(`❌ No valid pair data for ${tokenA.slice(0,6)}-${tokenB.slice(0,6)}`);
+    console.log(`❌ No valid pair data for ${TOKEN_MAP[tokenA.toLowerCase()]?.symbol || tokenA.slice(0,6)}-${TOKEN_MAP[tokenB.toLowerCase()]?.symbol || tokenB.slice(0,6)}`);
     return [];
   }
 
@@ -130,9 +146,9 @@ export async function getAllV2Prices(tokenA, tokenB, amountIn = ethers.parseEthe
 
   for (const dex of dexes) {
     if (dex.address) {
-      const price = await dex.fetcher.getPrice(tokenA, tokenB, amountIn, dex.address);
+      const { price, amountOut } = await dex.fetcher.getPrice(tokenA, tokenB, amountIn, dex.address);
       if (price > 0) {
-        prices.push({ dex: dex.name, price });
+        prices.push({ dex: dex.name, price, amountOut });
       }
     }
   }
